@@ -29,6 +29,7 @@ export interface ScreenElement {
 	text?: string;
 	name?: string;
 	value?: string;
+	hint?: string;
 	identifier?: string;
 	rect: ScreenElementRect;
 
