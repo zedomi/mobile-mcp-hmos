@@ -1,234 +1,137 @@
-# Mobile Next - MCP server for Mobile Development and Automation | iOS, Android, Simulator, Emulator, and Real Devices
+# Mobile MCP HarmonyOS — MCP Server for iOS, Android & HarmonyOS Automation
 
-This is a [Model Context Protocol (MCP) server](https://github.com/modelcontextprotocol) that enables scalable mobile automation, development through a platform-agnostic interface, eliminating the need for distinct iOS or Android knowledge. You can run it on emulators, simulators, and real devices (iOS and Android).
-This server allows Agents and LLMs to interact with native iOS/Android applications and devices through structured accessibility snapshots or coordinate-based taps based on screenshots.
+基于 [@mobilenext/mobile-mcp](https://github.com/mobile-next/mobile-mcp) 二次开发，**新增 HarmonyOS (鸿蒙) 设备自动化支持**。
 
-<h4 align="center">
-  <a href="https://github.com/mobile-next/mobile-mcp">
-    <img src="https://img.shields.io/github/stars/mobile-next/mobile-mcp" alt="Mobile Next Stars" />
-  </a>
-  <a href="https://github.com/mobile-next/mobile-mcp">
-    <img src="https://img.shields.io/github/contributors/mobile-next/mobile-mcp?color=green" alt="Mobile Next Downloads" />
-  </a>
-  <a href="https://www.npmjs.com/package/@mobilenext/mobile-mcp">
-    <img src="https://img.shields.io/npm/dm/@mobilenext/mobile-mcp?logo=npm&style=flat&color=red" alt="npm" />
-  </a>
-  <a href="https://github.com/mobile-next/mobile-mcp/releases">
-    <img src="https://img.shields.io/github/release/mobile-next/mobile-mcp" />
-  </a>
-  <a href="https://github.com/mobile-next/mobile-mcp/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-Apache 2.0-blue.svg" alt="Mobile MCP is released under the Apache-2.0 License" />
-  </a>
-  <a href="https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%7B%22name%22%3A%22mobile-mcp%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40mobilenext%2Fmobile-mcp%40latest%22%5D%7D">
-    <img src="https://img.shields.io/badge/VS_Code-VS_Code?style=flat-square&label=Install%20Server&color=0098FF" alt="Install in VS Code" />
-  </a>
-</h4>
+本项目是一个 [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) 服务器，提供跨平台的移动端自动化能力，让 Agent / LLM 能够通过统一接口与 iOS、Android 和 **HarmonyOS** 设备进行交互 —— 包括模拟器、仿真器和真机。
 
-<h4 align="center">
-  <a href="https://github.com/mobile-next/mobile-mcp/wiki">
-    <img src="https://img.shields.io/badge/documentation-wiki-blue" alt="wiki" />
-  </a>
-  <a href="https://mobilenexthq.com/join-slack">
-    <img src="https://img.shields.io/badge/join-Slack-blueviolet?logo=slack&style=flat" alt="join on Slack" />
-  </a>
-</h4>
+<a href="https://github.com/zedomi/mobile-mcp-hmos/blob/main/LICENSE">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" />
+</a>
 
-https://github.com/user-attachments/assets/c4e89c4f-cc71-4424-8184-bdbc8c638fa1
+---
 
-<p align="center">
-    <a href="https://github.com/mobile-next/">
-        <img alt="mobile-mcp" src="https://raw.githubusercontent.com/mobile-next/mobile-next-assets/refs/heads/main/mobile-mcp-banner.png" width="600" />
-    </a>
-</p>
+## ✨ 与上游的主要差异
 
-### 🚀 Mobile MCP Roadmap: Building the Future of Mobile
+| 特性 | [@mobilenext/mobile-mcp](https://github.com/mobile-next/mobile-mcp) | 本项目 |
+|------|:---:|:---:|
+| iOS 真机 / 模拟器 | ✅ | ✅ |
+| Android 真机 / 模拟器 | ✅ | ✅ |
+| **HarmonyOS 真机** | ❌ | ✅ |
 
-Join us on our journey as we continuously enhance Mobile MCP!
-Check out our detailed roadmap to see upcoming features, improvements, and milestones. Your feedback is invaluable in shaping the future of mobile automation.
+HarmonyOS 自动化通过 **HDC (HarmonyOS Device Connector)** 直接驱动设备，**无需 mobilecli 依赖**，开箱即用。
 
-👉 [Explore the Roadmap](https://github.com/orgs/mobile-next/projects/3)
+---
 
+## 🎯 平台支持
 
-### Main use cases
-
-How we help to scale mobile automation:
-
-- 📲 Native app automation (iOS and Android) for testing or data-entry scenarios.
-- 📝 Scripted flows and form interactions without manually controlling simulators/emulators or real devices (iPhone, Samsung, Google Pixel etc)
-- 🧭 Automating multi-step user journeys driven by an LLM
-- 👆 General-purpose mobile application interaction for agent-based frameworks
-- 🤖 Enables agent-to-agent communication for mobile automation usecases, data extraction
-
-## Main Features
-
-- 🚀 **Fast and lightweight**: Uses native accessibility trees for most interactions, or screenshot based coordinates where a11y labels are not available.
-- 🤖 **LLM-friendly**: No computer vision model required in Accessibility (Snapshot).
-- 🧿 **Visual Sense**: Evaluates and analyses what's actually rendered on screen to decide the next action. If accessibility data or view-hierarchy coordinates are unavailable, it falls back to screenshot-based analysis.
-- 📊 **Deterministic tool application**: Reduces ambiguity found in purely screenshot-based approaches by relying on structured data whenever possible.
-- 📺 **Extract structured data**: Enables you to extract structred data from anything visible on screen.
-
-### 🎯 Platform Support
-
-| Platform | Supported |
-|----------|:---------:|
+| 平台 | 支持 |
+|------|:---:|
 | iOS Real Device | ✅ |
 | iOS Simulator | ✅ |
 | Android Real Device | ✅ |
 | Android Emulator | ✅ |
+| **HarmonyOS Real Device** | ✅ |
 
-## 🔧 Available MCP Tools
+---
+
+## 🚀 主要能力
+
+- 📲 **三端原生应用自动化** — iOS、Android、HarmonyOS 统一 MCP 工具集
+- 🤖 **LLM 友好** — 基于无障碍树 (Accessibility Tree) 的结构化数据交互，无需视觉模型
+- 🧿 **视觉兜底** — 当无障碍数据不可用时，自动回退到截图坐标分析
+- 📊 **确定性操作** — 优先使用结构化数据，减少纯截图方案的歧义
+- 📺 **结构化数据提取** — 从屏幕可见内容中提取结构化信息
+
+---
+
+## 🔧 MCP 工具列表
 
 <details>
-<summary>📱 <strong>Click to expand tool list</strong> - List of Mobile MCP tools for automation and development</summary>
+<summary>📱 <strong>点击展开完整工具列表</strong></summary>
 
-> For detailed implementation and parameter specifications, see [`src/server.ts`](src/server.ts)
+> 详细实现见 [`src/server.ts`](src/server.ts)
 
-### Device Management
-- **`mobile_list_available_devices`** - List all available devices (simulators, emulators, and real devices)
-- **`mobile_get_screen_size`** - Get the screen size of the mobile device in pixels
-- **`mobile_get_orientation`** - Get the current screen orientation of the device
-- **`mobile_set_orientation`** - Change the screen orientation (portrait/landscape)
+### 设备管理
+- **`mobile_list_available_devices`** — 列出所有可用设备（模拟器、仿真器、真机，含 HarmonyOS）
+- **`mobile_get_screen_size`** — 获取设备屏幕尺寸（像素）
+- **`mobile_get_orientation`** — 获取当前屏幕方向
+- **`mobile_set_orientation`** — 设置屏幕方向（横屏 / 竖屏）
 
-### App Management
-- **`mobile_list_apps`** - List all installed apps on the device
-- **`mobile_launch_app`** - Launch an app using its package name
-- **`mobile_terminate_app`** - Stop and terminate a running app
-- **`mobile_install_app`** - Install an app from file (.apk, .ipa, .app, .zip)
-- **`mobile_uninstall_app`** - Uninstall an app using bundle ID or package name
+### 应用管理
+- **`mobile_list_apps`** — 列出设备上已安装的应用
+- **`mobile_launch_app`** — 通过包名启动应用
+- **`mobile_terminate_app`** — 停止并终止应用
+- **`mobile_install_app`** — 安装应用（.apk / .ipa / .app / .zip / .hap）
+- **`mobile_uninstall_app`** — 卸载应用
 
-### Screen Interaction
-- **`mobile_take_screenshot`** - Take a screenshot to understand what's on screen
-- **`mobile_save_screenshot`** - Save a screenshot to a file
-- **`mobile_list_elements_on_screen`** - List UI elements with their coordinates and properties
-- **`mobile_click_on_screen_at_coordinates`** - Click at specific x,y coordinates
-- **`mobile_double_tap_on_screen`** - Double-tap at specific coordinates
-- **`mobile_long_press_on_screen_at_coordinates`** - Long press at specific coordinates
-- **`mobile_swipe_on_screen`** - Swipe in any direction (up, down, left, right)
+### 屏幕交互
+- **`mobile_take_screenshot`** — 截取屏幕截图
+- **`mobile_save_screenshot`** — 保存截图到文件
+- **`mobile_list_elements_on_screen`** — 列出屏幕上的 UI 元素及其坐标
+- **`mobile_click_on_screen_at_coordinates`** — 点击指定坐标
+- **`mobile_double_tap_on_screen`** — 双击指定坐标
+- **`mobile_long_press_on_screen_at_coordinates`** — 长按指定坐标
+- **`mobile_swipe_on_screen`** — 滑动（上 / 下 / 左 / 右）
 
-### Input & Navigation
-- **`mobile_type_keys`** - Type text into focused elements with optional submit
-- **`mobile_press_button`** - Press device buttons (HOME, BACK, VOLUME_UP/DOWN, ENTER, etc.)
-- **`mobile_open_url`** - Open URLs in the device browser
+### 输入与导航
+- **`mobile_type_keys`** — 向焦点元素输入文本
+- **`mobile_press_button`** — 按下设备按钮（HOME、BACK、VOLUME_UP/DOWN、ENTER 等）
+- **`mobile_open_url`** — 在设备浏览器中打开 URL
 
-### Platform Support
-- **iOS**: Simulators and real devices via native accessibility and WebDriverAgent
-- **Android**: Emulators and real devices via ADB and UI Automator
-- **Cross-platform**: Unified API works across both iOS and Android
+### 各平台底层实现
+- **iOS** — 通过 WebDriverAgent + 原生无障碍接口
+- **Android** — 通过 ADB + UI Automator
+- **HarmonyOS** — 通过 HDC + uitest + hidumper（无需 mobilecli）
 
 </details>
 
-## 🏗️ Mobile MCP Architecture
+---
 
-<p align="center">
-    <a href="https://raw.githubusercontent.com/mobile-next/mobile-next-assets/refs/heads/main/mobile-mcp-arch-1.png">
-        <img alt="mobile-mcp" src="https://raw.githubusercontent.com/mobile-next/mobile-next-assets/refs/heads/main/mobile-mcp-arch-1.png" width="600">
-    </a>
-</p>
+## 📦 安装与配置
 
+### 前置依赖
 
-## 📚 Wiki page
+| 平台 | 依赖 |
+|------|------|
+| iOS / Android | [mobilecli](https://github.com/nicklockwood/mobilecli)（`@mobilenext/mobilecli`） |
+| **HarmonyOS** | [HDC](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-command-line-hdc) — HarmonyOS SDK 自带，确保 `hdc` 在 PATH 中，或设置 `HDC_SDK_PATH` 环境变量 |
+| 通用 | Node.js >= 18 |
 
-More details in our [wiki page](https://github.com/mobile-next/mobile-mcp/wiki) for setup, configuration and debugging related questions.
+### MCP 配置
 
-
-## Installation and configuration
-
-**Standard config** works in most of the tools:
+**标准配置**（适用于大多数 MCP 客户端）：
 
 ```json
 {
   "mcpServers": {
     "mobile-mcp": {
       "command": "npx",
-      "args": ["-y", "@mobilenext/mobile-mcp@latest"]
+      "args": ["-y", "@ali/mobile-mcp-harmony@latest"]
     }
   }
 }
 ```
 
 <details>
-<summary>Amp</summary>
-
-Add via the Amp VS Code extension settings screen or by updating your `settings.json` file:
-
-```json
-"amp.mcpServers": {
-  "mobile-mcp": {
-    "command": "npx",
-    "args": [
-      "@mobilenext/mobile-mcp@latest"
-    ]
-  }
-}
-```
-
-**Amp CLI:**
-
-Run the following command in your terminal:
-
-```bash
-amp mcp add mobile-mcp -- npx @mobilenext/mobile-mcp@latest
-```
-
-</details>
-
-<details>
-<summary>Cline</summary>
-
-To setup Cline, just add the json above to your MCP settings file.
-
-[More in our wiki](https://github.com/mobile-next/mobile-mcp/wiki/Cline)
-
-</details>
-
-<details>
 <summary>Claude Code</summary>
 
-Use the Claude Code CLI to add the Mobile MCP server:
-
 ```bash
-claude mcp add mobile-mcp -- npx -y @mobilenext/mobile-mcp@latest
+claude mcp add mobile-mcp -- npx -y @ali/mobile-mcp-harmony@latest
 ```
+
 </details>
 
 <details>
 <summary>Claude Desktop</summary>
 
-Follow the [MCP install guide](https://modelcontextprotocol.io/quickstart/user), use json configuration above.
+按照 [MCP 安装指南](https://modelcontextprotocol.io/quickstart/user)，使用上方的 JSON 配置。
 
 </details>
 
 <details>
-<summary>Codex</summary>
+<summary>VS Code / Copilot</summary>
 
-Use the Codex CLI to add the Mobile MCP server:
-
-```bash
-codex mcp add mobile-mcp npx "@mobilenext/mobile-mcp@latest"
-```
-
-Alternatively, create or edit the configuration file `~/.codex/config.toml` and add:
-
-```toml
-[mcp_servers.mobile-mcp]
-command = "npx"
-args = ["@mobilenext/mobile-mcp@latest"]
-```
-
-For more information, see the Codex MCP documentation.
-
-</details>
-
-<details>
-<summary>Copilot</summary>
-
-Use the Copilot CLI to interactively add the Mobile MCP server:
-
-```text
-/mcp add
-```
-
-You can edit the configuration file `~/.copilot/mcp-config.json` and add:
+编辑 `~/.copilot/mcp-config.json`：
 
 ```json
 {
@@ -236,228 +139,60 @@ You can edit the configuration file `~/.copilot/mcp-config.json` and add:
     "mobile-mcp": {
       "type": "local",
       "command": "npx",
-      "tools": [
-        "*"
-      ],
-      "args": [
-        "@mobilenext/mobile-mcp@latest"
-      ]
+      "tools": ["*"],
+      "args": ["@ali/mobile-mcp-harmony@latest"]
     }
   }
 }
 ```
 
-For more information, see the Copilot CLI documentation.
-
 </details>
 
 <details>
-<summary>Cursor</summary>
-
-#### Click the button to install:
-
-[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/en/install-mcp?name=Mobile%20MCP&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBtb2JpbGVuZXh0L21vYmlsZS1tY3BAbGF0ZXN0Il19)
-
-#### Or install manually:
-
-Go to `Cursor Settings` -> `MCP` -> `Add new MCP Server`. Name to your liking, use `command` type with the command `npx -y @mobilenext/mobile-mcp@latest`. You can also verify config or add command like arguments via clicking `Edit`.
-
-</details>
-
-<details>
-<summary>Gemini CLI</summary>
-
-Use the Gemini CLI to add the Mobile MCP server:
+<summary>从源码构建</summary>
 
 ```bash
-gemini mcp add mobile-mcp npx -y @mobilenext/mobile-mcp@latest
+git clone https://github.com/zedomi/mobile-mcp-hmos.git
+cd mobile-mcp-hmos
+npm install
+npm run build
 ```
 
-</details>
-
-<details>
-<summary>Goose</summary>
-
-#### Click the button to install:
-
-[![Install in Goose](https://block.github.io/goose/img/extension-install-dark.svg)](https://block.github.io/goose/extension?cmd=npx&arg=-y&arg=%40mobilenext%2Fmobile-mcp%40latest&id=mobile-mcp&name=Mobile%20MCP&description=Mobile%20automation%20and%20development%20for%20iOS%2C%20Android%2C%20simulators%2C%20emulators%2C%20and%20real%20devices)
-
-#### Or install manually:
-
-Go to `Advanced settings` -> `Extensions` -> `Add custom extension`. Name to your liking, use type `STDIO`, and set the `command` to `npx -y @mobilenext/mobile-mcp@latest`. Click "Add Extension".
-
-</details>
-
-<details>
-<summary>Kiro</summary>
-
-Follow the MCP Servers [documentation](https://kiro.dev/docs/mcp/). For example in `.kiro/settings/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "mobile-mcp": {
-      "command": "npx",
-      "args": [
-        "@mobilenext/mobile-mcp@latest"
-      ]
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary>opencode</summary>
-
-Follow the MCP Servers documentation. For example in `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "mobile-mcp": {
-      "type": "local",
-      "command": [
-        "npx",
-        "@mobilenext/mobile-mcp@latest"
-      ],
-      "enabled": true
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary>Qodo Gen</summary>
-
-Open [Qodo Gen](https://docs.qodo.ai/qodo-documentation/qodo-gen) chat panel in VSCode or IntelliJ → Connect more tools → + Add new MCP → Paste the standard config above.
-
-Click <code>Save</code>.
-
-</details>
-
-
-<details>
-<summary>Windsurf</summary>
-
-Open Windsurf settings, navigate to MCP servers, and add a new server using the `command` type with:
+构建产物在 `lib/` 目录，可通过以下方式启动：
 
 ```bash
-npx @mobilenext/mobile-mcp@latest
-```
+# stdio 模式（默认）
+node lib/index.js
 
-Or add the standard config under `mcpServers` in your settings as shown above.
+# SSE 模式
+node lib/index.js --port 3000
+```
 
 </details>
 
+---
 
-[Read more in our wiki](https://github.com/mobile-next/mobile-mcp/wiki)! 🚀
+## 🏗️ HarmonyOS 自动化原理
 
+HarmonyOS 自动化通过 `HarmonyRobot` 类实现（见 [`src/harmony.ts`](src/harmony.ts)），核心依赖：
 
-### 🛠️ How to Use 📝
+| 工具 | 用途 |
+|------|------|
+| `hdc` | 设备连接、文件传输、Shell 命令执行 |
+| `uitest` | UI 操作（点击、滑动、输入、布局 dump） |
+| `hidumper` | 获取屏幕尺寸、旋转方向等显示信息 |
+| `snapshot_display` | 截取屏幕截图 |
+| `bm` | 应用包管理（安装、卸载、查询） |
+| `aa` | Ability 启动与终止 |
 
-After adding the MCP server to your IDE/Client, you can instruct your AI assistant to use the available tools.
-For example, in Cursor's agent mode, you could use the prompts below to quickly validate, test and iterate on UI intereactions, read information from screen, go through complex workflows.
-Be descriptive, straight to the point.
+设备发现流程：`mobile_list_available_devices` 会自动通过 `hdc list targets` 探测 HarmonyOS 设备，与 iOS / Android 设备一起返回统一的设备列表。
 
-### ✨ Example Prompts
+---
 
-#### Workflows
+## 🙏 致谢
 
-You can specifiy detailed workflows in a single prompt, verify business logic, setup automations. You can go crazy:
+本项目基于 [@mobilenext/mobile-mcp](https://github.com/mobile-next/mobile-mcp) 进行二次开发，感谢 Mobile Next 团队的优秀工作。
 
-**Search for a video, comment, like and share it.**
-```
-Find the video called " Beginner Recipe for Tonkotsu Ramen" by Way of
-Ramen, click on like video, after liking write a comment " this was
-delicious, will make it next Friday", share the video with the first
-contact in your whatsapp list.
-```
+## 📄 License
 
-**Download a successful step counter app, register, setup workout and 5-star the app**
-```
-Find and Download a free "Pomodoro" app that has more than 1k stars.
-Launch the app, register with my email, after registration find how to
-start a pomodoro timer. When the pomodoro timer started, go back to the
-app store and rate the app 5 stars, and leave a comment how useful the
-app is.
-```
-
-**Search in Substack, read, highlight, comment and save an article**
-```
-Open Substack website, search for "Latest trends in AI automation 2025",
-open the first article, highlight the section titled "Emerging AI trends",
-and save article to reading list for later review, comment a random
-paragraph summary.
-```
-
-**Reserve a workout class, set timer**
-```
-Open ClassPass, search for yoga classes tomorrow morning within 2 miles,
-book the highest-rated class at 7 AM, confirm reservation,
-setup a timer for the booked slot in the phone
-```
-
-**Find a local event, setup calendar event**
-```
-Open Eventbrite, search for AI startup meetup events happening this
-weekend in "Austin, TX", select the most popular one, register and RSVP
-yes to the event, setup a calendar event as a reminder.
-```
-
-**Check weather forecast and send a Whatsapp/Telegram/Slack message**
-```
-Open Weather app, check tomorrow's weather forecast for "Berlin", and
-send the summary via Whatsapp/Telegram/Slack to contact "Lauren Trown",
-thumbs up their response.
-```
-
-- **Schedule a meeting in Zoom and share invite via email**
-```
-Open Zoom app, schedule a meeting titled "AI Hackathon" for tomorrow at
-10AM with a duration of 1 hour, copy the invitation link, and send it via
-Gmail to contacts "team@example.com".
-```
-[More prompt examples can be found here.](https://github.com/mobile-next/mobile-mcp/wiki/Prompt-Example-repo-list)
-
-## Prerequisites
-
-What you will need to connect MCP with your agent and mobile devices:
-
-- [Xcode command line tools](https://developer.apple.com/xcode/resources/)
-- [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)
-- [node.js](https://nodejs.org/en/download/) v22+
-- [MCP](https://modelcontextprotocol.io/introduction) supported foundational models or agents, like [Claude MCP](https://modelcontextprotocol.io/quickstart/server), [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/mcp/), [Copilot Studio](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/introducing-model-context-protocol-mcp-in-copilot-studio-simplified-integration-with-ai-apps-and-agents/)
-
-### Simulators, Emulators, and Real Devices
-
-When launched, Mobile MCP can connect to:
-- iOS Simulators on macOS/Linux
-- Android Emulators on Linux/Windows/macOS
-- iOS or Android real devices (requires proper platform tools and drivers)
-
-Make sure you have your mobile platform SDKs (Xcode, Android SDK) installed and configured properly before running Mobile Next Mobile MCP.
-
-### Running in "headless" mode on Simulators/Emulators
-
-When you do not have a real device connected to your machine, you can run Mobile MCP with an emulator or simulator in the background.
-
-For example, on Android:
-1. Start an emulator (avdmanager / emulator command).
-2. Run Mobile MCP with the desired flags
-
-On iOS, you'll need Xcode and to run the Simulator before using Mobile MCP with that simulator instance.
-- `xcrun simctl list`
-- `xcrun simctl boot "iPhone 16"`
-
-# Thanks to all contributors ❤️
-
-### We appreciate everyone who has helped improve this project.
-
-  <a href = "https://github.com/mobile-next/mobile-mcp/graphs/contributors">
-   <img src = "https://contrib.rocks/image?repo=mobile-next/mobile-mcp"/>
- </a>
+[Apache-2.0](LICENSE)

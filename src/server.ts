@@ -453,7 +453,7 @@ export const createMcpServer = (): McpServer => {
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const elements = await robot.getElementsOnScreen();
-			
+
 			const result = elements.map(element => {
 				const centerX = Math.floor(element.rect.x + element.rect.width / 2);
 				const centerY = Math.floor(element.rect.y + element.rect.height / 2);
