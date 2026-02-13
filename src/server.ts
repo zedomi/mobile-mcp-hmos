@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
+import { HarmonyRobot, HarmonyDeviceManager } from "./harmony";
 import { ActionableError, Robot } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
@@ -16,7 +17,7 @@ import { MobileDevice } from "./mobile-device";
 interface MobilecliDevice {
 	id: string;
 	name: string;
-	platform: "android" | "ios";
+	platform: "android" | "ios" | "harmony";
 	type: "real" | "emulator" | "simulator";
 	version: string;
 	state: "online" | "offline";
@@ -147,6 +148,17 @@ export const createMcpServer = (): McpServer => {
 
 	const getRobotFromDevice = (deviceId: string): Robot => {
 
+		// Check if it's a HarmonyOS device (no mobilecli dependency)
+		try {
+			const harmonyManager = new HarmonyDeviceManager();
+			const harmonyDevices = harmonyManager.getConnectedDevices();
+			if (harmonyDevices.includes(deviceId)) {
+				return new HarmonyRobot(deviceId);
+			}
+		} catch {
+			// hdc not available, skip HarmonyOS detection
+		}
+
 		// from now on, we must have mobilecli working
 		ensureMobilecliAvailable();
 
@@ -194,59 +206,86 @@ export const createMcpServer = (): McpServer => {
 		{ readOnlyHint: true },
 		async ({}) => {
 
-			// from today onward, we must have mobilecli working
-			ensureMobilecliAvailable();
-
-			const iosManager = new IosManager();
-			const androidManager = new AndroidDeviceManager();
 			const devices: MobilecliDevice[] = [];
 
-			// Get Android devices with details
-			const androidDevices = androidManager.getConnectedDevicesWithDetails();
-			for (const device of androidDevices) {
-				devices.push({
-					id: device.deviceId,
-					name: device.name,
-					platform: "android",
-					type: "emulator",
-					version: device.version,
-					state: "online",
-				});
-			}
-
-			// Get iOS physical devices with details
+			// Get HarmonyOS devices (no mobilecli dependency)
 			try {
-				const iosDevices = iosManager.listDevicesWithDetails();
-				for (const device of iosDevices) {
+				const harmonyManager = new HarmonyDeviceManager();
+				const harmonyDevices = harmonyManager.getConnectedDevicesWithDetails();
+				for (const device of harmonyDevices) {
 					devices.push({
 						id: device.deviceId,
-						name: device.deviceName,
-						platform: "ios",
+						name: device.name,
+						platform: "harmony",
 						type: "real",
 						version: device.version,
 						state: "online",
 					});
 				}
-			} catch (error: any) {
-				// If go-ios is not available, silently skip
+			} catch {
+				// hdc not available, silently skip
 			}
 
-			// Get iOS simulators from mobilecli (excluding offline devices)
-			const response = mobilecli.getDevices({
-				platform: "ios",
-				type: "simulator",
-				includeOffline: false,
-			});
-			if (response.status === "ok" && response.data && response.data.devices) {
-				for (const device of response.data.devices) {
+			// Get Android and iOS devices (requires mobilecli)
+			let mobilecliAvailable = false;
+			try {
+				ensureMobilecliAvailable();
+				mobilecliAvailable = true;
+			} catch {
+				// mobilecli not available, skip Android/iOS detection
+			}
+
+			if (mobilecliAvailable) {
+				const androidManager = new AndroidDeviceManager();
+				const iosManager = new IosManager();
+
+				// Get Android devices with details
+				const androidDevices = androidManager.getConnectedDevicesWithDetails();
+				for (const device of androidDevices) {
 					devices.push({
-						id: device.id,
+						id: device.deviceId,
 						name: device.name,
-						platform: device.platform,
-						type: device.type,
+						platform: "android",
+						type: "emulator",
 						version: device.version,
 						state: "online",
 					});
+				}
+
+				// Get iOS physical devices with details
+				try {
+					const iosDevices = iosManager.listDevicesWithDetails();
+					for (const device of iosDevices) {
+						devices.push({
+							id: device.deviceId,
+							name: device.deviceName,
+							platform: "ios",
+							type: "real",
+							version: device.version,
+							state: "online",
+						});
+					}
+				} catch (error: any) {
+					// If go-ios is not available, silently skip
+				}
+
+				// Get iOS simulators from mobilecli (excluding offline devices)
+				const response = mobilecli.getDevices({
+					platform: "ios",
+					type: "simulator",
+					includeOffline: false,
+				});
+				if (response.status === "ok" && response.data && response.data.devices) {
+					for (const device of response.data.devices) {
+						devices.push({
+							id: device.id,
+							name: device.name,
+							platform: device.platform,
+							type: device.type,
+							version: device.version,
+							state: "online",
+						});
+					}
 				}
 			}
 
@@ -414,20 +453,21 @@ export const createMcpServer = (): McpServer => {
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
 			const elements = await robot.getElementsOnScreen();
-
+			
 			const result = elements.map(element => {
+				const centerX = Math.floor(element.rect.x + element.rect.width / 2);
+				const centerY = Math.floor(element.rect.y + element.rect.height / 2);
 				const out: any = {
 					type: element.type,
 					text: element.text,
 					label: element.label,
 					name: element.name,
 					value: element.value,
+					hint: element.hint,
 					identifier: element.identifier,
 					coordinates: {
-						x: element.rect.x,
-						y: element.rect.y,
-						width: element.rect.width,
-						height: element.rect.height,
+						x: centerX,
+						y: centerY
 					},
 				};
 
@@ -448,7 +488,7 @@ export const createMcpServer = (): McpServer => {
 		"Press a button on device",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you."),
-			button: z.string().describe("The button to press. Supported buttons: BACK (android only), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
+			button: z.string().describe("The button to press. Supported buttons: BACK (android and harmony), HOME, VOLUME_UP, VOLUME_DOWN, ENTER, DPAD_CENTER (android tv only), DPAD_UP (android tv only), DPAD_DOWN (android tv only), DPAD_LEFT (android tv only), DPAD_RIGHT (android tv only)"),
 		},
 		{ destructiveHint: true },
 		async ({ device, button }) => {
@@ -562,25 +602,51 @@ export const createMcpServer = (): McpServer => {
 				let screenshot = await robot.getScreenshot();
 				let mimeType = "image/png";
 
-				// validate we received a png, will throw exception otherwise
-				const image = new PNG(screenshot);
-				const pngSize = image.getDimensions();
-				if (pngSize.width <= 0 || pngSize.height <= 0) {
-					throw new ActionableError("Screenshot is invalid. Please try again.");
-				}
+				// Detect image format by file header
+				const isJpeg = screenshot.length >= 3 && screenshot[0] === 0xFF && screenshot[1] === 0xD8 && screenshot[2] === 0xFF;
+				let imageWidth: number;
+				let imageHeight: number;
 
-				if (isScalingAvailable()) {
-					trace("Image scaling is available, resizing screenshot");
-					const image = Image.fromBuffer(screenshot);
-					const beforeSize = screenshot.length;
-					screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
-						.jpeg({ quality: 75 })
-						.toBuffer();
-
-					const afterSize = screenshot.length;
-					trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
-
+				if (isJpeg) {
 					mimeType = "image/jpeg";
+					imageWidth = screenSize.width;
+					imageHeight = screenSize.height;
+
+					if (isScalingAvailable()) {
+						trace("Image scaling is available, resizing JPEG screenshot");
+						const image = Image.fromBuffer(screenshot);
+						const beforeSize = screenshot.length;
+						screenshot = image.resize(Math.floor(imageWidth / screenSize.scale))
+							.jpeg({ quality: 75 })
+							.toBuffer();
+
+						const afterSize = screenshot.length;
+						trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
+					}
+				} else {
+					// validate we received a png, will throw exception otherwise
+					const pngImage = new PNG(screenshot);
+					const pngSize = pngImage.getDimensions();
+					if (pngSize.width <= 0 || pngSize.height <= 0) {
+						throw new ActionableError("Screenshot is invalid. Please try again.");
+					}
+
+					imageWidth = pngSize.width;
+					imageHeight = pngSize.height;
+
+					if (isScalingAvailable()) {
+						trace("Image scaling is available, resizing PNG screenshot");
+						const image = Image.fromBuffer(screenshot);
+						const beforeSize = screenshot.length;
+						screenshot = image.resize(Math.floor(pngSize.width / screenSize.scale))
+							.jpeg({ quality: 75 })
+							.toBuffer();
+
+						const afterSize = screenshot.length;
+						trace(`Screenshot resized from ${beforeSize} bytes to ${afterSize} bytes`);
+
+						mimeType = "image/jpeg";
+					}
 				}
 
 				const screenshot64 = screenshot.toString("base64");
@@ -589,8 +655,8 @@ export const createMcpServer = (): McpServer => {
 					"ToolName": "mobile_take_screenshot",
 					"ScreenshotFilesize": screenshot64.length,
 					"ScreenshotMimeType": mimeType,
-					"ScreenshotWidth": pngSize.width,
-					"ScreenshotHeight": pngSize.height,
+					"ScreenshotWidth": imageWidth,
+					"ScreenshotHeight": imageHeight,
 				}).then();
 
 				return {
