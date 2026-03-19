@@ -13,6 +13,7 @@ import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
 import { Mobilecli } from "./mobilecli";
 import { MobileDevice } from "./mobile-device";
+import { GlmOcrClient } from "./glm-ocr";
 
 interface MobilecliDevice {
 	id: string;
@@ -32,7 +33,11 @@ export const getAgentVersion = (): string => {
 	return json.version;
 };
 
-export const createMcpServer = (): McpServer => {
+export interface McpServerConfig {
+	zhipuaiApiKey?: string;
+}
+
+export const createMcpServer = (config?: McpServerConfig): McpServer => {
 
 	const server = new McpServer({
 		name: "mobile-mcp",
@@ -702,6 +707,51 @@ export const createMcpServer = (): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
+
+	// Conditionally register GLM-OCR tool when API key is provided
+	if (config?.zhipuaiApiKey) {
+		const ocrClient = new GlmOcrClient(config.zhipuaiApiKey);
+
+		tool(
+			"mobile_ocr_elements_on_screen",
+			"OCR Screen Elements",
+			"Use OCR to recognize visible text elements on screen and their tap coordinates. Use this when mobile_list_elements_on_screen returns empty or incomplete results, such as for Weex-rendered or canvas-based pages. Do not cache this result.",
+			{
+				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
+			},
+			{ readOnlyHint: true },
+			async ({ device }) => {
+				const robot = getRobotFromDevice(device);
+				const [screenshot, screenSize] = await Promise.all([
+					robot.getScreenshot(),
+					robot.getScreenSize(),
+				]);
+
+				const layoutDetails = await ocrClient.parseLayout(screenshot);
+
+				const result = layoutDetails
+					.filter(d => d.content && d.content.trim().length > 0)
+					.filter(d => {
+						const [x1, y1, x2, y2] = d.bbox_2d;
+						return (x2 - x1) > 0 && (y2 - y1) > 0;
+					})
+					.map(d => {
+						const [x1, y1, x2, y2] = d.bbox_2d;
+						const centerX = Math.floor((x1 + x2) / 2 / screenSize.scale);
+						const centerY = Math.floor((y1 + y2) / 2 / screenSize.scale);
+						const text = d.content!.replace(/\n+/g, " ").trim();
+						return {
+							type: d.label,
+							text,
+							label: d.native_label,
+							coordinates: { x: centerX, y: centerY },
+						};
+					});
+
+				return `Found these OCR elements on screen: ${JSON.stringify(result)}`;
+			}
+		);
+	}
 
 	return server;
 };
