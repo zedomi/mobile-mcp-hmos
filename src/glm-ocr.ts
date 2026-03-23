@@ -1,5 +1,6 @@
 import { ActionableError } from "./robot";
 import { trace } from "./logger";
+import * as https from "node:https";
 
 const GLM_OCR_API_URL = "https://open.bigmodel.cn/api/paas/v4/layout_parsing";
 const GLM_OCR_MODEL = "glm-ocr";
@@ -50,53 +51,77 @@ export class GlmOcrClient {
 
 		trace(`GLM-OCR: sending ${mimeType} image (${imageBuffer.length} bytes)`);
 
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+		const requestBody = JSON.stringify({
+			model: GLM_OCR_MODEL,
+			file: dataUri,
+		});
 
-		try {
-			const response = await fetch(GLM_OCR_API_URL, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Authorization": this.apiKey,
+		const responseBody = await this.httpPost(GLM_OCR_API_URL, requestBody);
+
+		const json = JSON.parse(responseBody) as GlmOcrResponse;
+
+		if (!json.layout_details || json.layout_details.length === 0 || !json.layout_details[0]) {
+			trace("GLM-OCR: no layout details returned");
+			return [];
+		}
+
+		const details = json.layout_details[0];
+		trace(`GLM-OCR: recognized ${details.length} layout elements (tokens: ${json.usage?.total_tokens ?? "unknown"})`);
+		return details;
+	}
+
+	private httpPost(url: string, body: string): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const parsedUrl = new URL(url);
+
+			const req = https.request(
+				{
+					hostname: parsedUrl.hostname,
+					port: parsedUrl.port || 443,
+					path: parsedUrl.pathname,
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						"Authorization": this.apiKey,
+						"Content-Length": Buffer.byteLength(body),
+					},
+					timeout: REQUEST_TIMEOUT_MS,
 				},
-				body: JSON.stringify({
-					model: GLM_OCR_MODEL,
-					file: dataUri,
-				}),
-				signal: controller.signal,
+				res => {
+					const chunks: Buffer[] = [];
+					res.on("data", (chunk: Buffer) => chunks.push(chunk));
+					res.on("end", () => {
+						const responseBody = Buffer.concat(chunks).toString("utf-8");
+						const statusCode = res.statusCode ?? 0;
+
+						if (statusCode === 401 || statusCode === 403) {
+							reject(new ActionableError("GLM-OCR API authentication failed. Please check your --zhipuai-api-key parameter"));
+							return;
+						}
+
+						if (statusCode === 429) {
+							reject(new ActionableError("GLM-OCR API rate limit exceeded. Please try again later"));
+							return;
+						}
+
+						if (statusCode < 200 || statusCode >= 300) {
+							reject(new Error(`GLM-OCR API returned HTTP ${statusCode}: ${responseBody}`));
+							return;
+						}
+
+						resolve(responseBody);
+					});
+				}
+			);
+
+			req.on("error", err => reject(new Error(`GLM-OCR API request failed: ${err.message}`)));
+			req.on("timeout", () => {
+				req.destroy();
+				reject(new Error(`GLM-OCR API request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`));
 			});
 
-			if (response.status === 401 || response.status === 403) {
-				throw new ActionableError("GLM-OCR API authentication failed. Please check your --zhipuai-api-key parameter");
-			}
-
-			if (response.status === 429) {
-				throw new ActionableError("GLM-OCR API rate limit exceeded. Please try again later");
-			}
-
-			if (!response.ok) {
-				const body = await response.text();
-				throw new Error(`GLM-OCR API returned HTTP ${response.status}: ${body}`);
-			}
-
-			const json = await response.json() as GlmOcrResponse;
-
-			if (!json.layout_details || json.layout_details.length === 0 || !json.layout_details[0]) {
-				trace("GLM-OCR: no layout details returned");
-				return [];
-			}
-
-			const details = json.layout_details[0];
-			trace(`GLM-OCR: recognized ${details.length} layout elements (tokens: ${json.usage?.total_tokens ?? "unknown"})`);
-			return details;
-		} catch (err: any) {
-			if (err.name === "AbortError") {
-				throw new Error(`GLM-OCR API request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`);
-			}
-			throw err;
-		} finally {
-			clearTimeout(timeout);
-		}
+			req.write(body);
+			req.end();
+		});
 	}
 }

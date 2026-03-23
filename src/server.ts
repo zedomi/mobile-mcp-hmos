@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 import { error, trace } from "./logger";
 import { AndroidRobot, AndroidDeviceManager } from "./android";
 import { HarmonyRobot, HarmonyDeviceManager } from "./harmony";
-import { ActionableError, Robot } from "./robot";
+import { ActionableError, Robot, ScreenElement } from "./robot";
 import { IosManager, IosRobot } from "./ios";
 import { PNG } from "./png";
 import { isScalingAvailable, Image } from "./image-utils";
@@ -76,7 +76,6 @@ export const createMcpServer = (config?: McpServerConfig): McpServer => {
 				const start = +new Date();
 				const response = await cb(args);
 				const duration = +new Date() - start;
-				trace(`=> ${response}`);
 				posthog("tool_invoked", { "ToolName": name, "Duration": duration }).then();
 				return {
 					content: [{ type: "text", text: response }],
@@ -450,16 +449,53 @@ export const createMcpServer = (config?: McpServerConfig): McpServer => {
 	tool(
 		"mobile_list_elements_on_screen",
 		"List Screen Elements",
-		"List elements on screen and their coordinates, with display text or accessibility label. Do not cache this result.",
+		"List elements on screen and their coordinates, with display text or accessibility label. When a ZhipuAI API key is configured, OCR recognition will also run in parallel to capture elements from Weex-rendered or canvas-based pages. Do not cache this result.",
 		{
 			device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
 		},
 		{ readOnlyHint: true },
 		async ({ device }) => {
 			const robot = getRobotFromDevice(device);
-			const elements = await robot.getElementsOnScreen();
 
-			const result = elements.map(element => {
+			const ocrClient = config?.zhipuaiApiKey ? new GlmOcrClient(config.zhipuaiApiKey) : null;
+
+			// Build parallel tasks: DOM elements + optional OCR
+			const domPromise = robot.getElementsOnScreen().catch(() => [] as ScreenElement[]);
+
+			let ocrPromise: Promise<any[]> = Promise.resolve([]);
+			if (ocrClient) {
+				ocrPromise = Promise.all([robot.getScreenshot(), robot.getScreenSize()])
+					.then(async ([screenshot, screenSize]) => {
+						const layoutDetails = await ocrClient.parseLayout(screenshot);
+						return layoutDetails
+							.filter(d => d.content && d.content.trim().length > 0)
+							.filter(d => {
+								const [x1, y1, x2, y2] = d.bbox_2d;
+								return (x2 - x1) > 0 && (y2 - y1) > 0;
+							})
+							.map(d => {
+								const [x1, y1, x2, y2] = d.bbox_2d;
+								const centerX = Math.floor((x1 + x2) / 2 / screenSize.scale);
+								const centerY = Math.floor((y1 + y2) / 2 / screenSize.scale);
+								const text = d.content!.replace(/\n+/g, " ").trim();
+								return {
+									type: d.label,
+									text,
+									label: d.native_label,
+									source: "ocr",
+									coordinates: { x: centerX, y: centerY },
+								};
+							});
+					})
+					.catch(err => {
+						trace(`GLM-OCR failed: ${err.message}`);
+						return [];
+					});
+			}
+
+			const [elements, ocrElements] = await Promise.all([domPromise, ocrPromise]);
+
+			const domResult = elements.map(element => {
 				const centerX = Math.floor(element.rect.x + element.rect.width / 2);
 				const centerY = Math.floor(element.rect.y + element.rect.height / 2);
 				const out: any = {
@@ -470,6 +506,7 @@ export const createMcpServer = (config?: McpServerConfig): McpServer => {
 					value: element.value,
 					hint: element.hint,
 					identifier: element.identifier,
+					source: "dom",
 					coordinates: {
 						x: centerX,
 						y: centerY
@@ -482,6 +519,8 @@ export const createMcpServer = (config?: McpServerConfig): McpServer => {
 
 				return out;
 			});
+
+			const result = [...domResult, ...ocrElements];
 
 			return `Found these elements on screen: ${JSON.stringify(result)}`;
 		}
@@ -707,51 +746,6 @@ export const createMcpServer = (config?: McpServerConfig): McpServer => {
 			return `Current device orientation is ${orientation}`;
 		}
 	);
-
-	// Conditionally register GLM-OCR tool when API key is provided
-	if (config?.zhipuaiApiKey) {
-		const ocrClient = new GlmOcrClient(config.zhipuaiApiKey);
-
-		tool(
-			"mobile_ocr_elements_on_screen",
-			"OCR Screen Elements",
-			"Use OCR to recognize visible text elements on screen and their tap coordinates. Use this when mobile_list_elements_on_screen returns empty or incomplete results, such as for Weex-rendered or canvas-based pages. Do not cache this result.",
-			{
-				device: z.string().describe("The device identifier to use. Use mobile_list_available_devices to find which devices are available to you.")
-			},
-			{ readOnlyHint: true },
-			async ({ device }) => {
-				const robot = getRobotFromDevice(device);
-				const [screenshot, screenSize] = await Promise.all([
-					robot.getScreenshot(),
-					robot.getScreenSize(),
-				]);
-
-				const layoutDetails = await ocrClient.parseLayout(screenshot);
-
-				const result = layoutDetails
-					.filter(d => d.content && d.content.trim().length > 0)
-					.filter(d => {
-						const [x1, y1, x2, y2] = d.bbox_2d;
-						return (x2 - x1) > 0 && (y2 - y1) > 0;
-					})
-					.map(d => {
-						const [x1, y1, x2, y2] = d.bbox_2d;
-						const centerX = Math.floor((x1 + x2) / 2 / screenSize.scale);
-						const centerY = Math.floor((y1 + y2) / 2 / screenSize.scale);
-						const text = d.content!.replace(/\n+/g, " ").trim();
-						return {
-							type: d.label,
-							text,
-							label: d.native_label,
-							coordinates: { x: centerX, y: centerY },
-						};
-					});
-
-				return `Found these OCR elements on screen: ${JSON.stringify(result)}`;
-			}
-		);
-	}
 
 	return server;
 };

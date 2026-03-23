@@ -2,155 +2,89 @@
 
 <cite>
 **本文档引用的文件**
-- [src/harmony.ts](file://src/harmony.ts)
-- [src/robot.ts](file://src/robot.ts)
-- [src/server.ts](file://src/server.ts)
 - [src/index.ts](file://src/index.ts)
-- [src/mobilecli.ts](file://src/mobilecli.ts)
+- [src/harmony.ts](file://src/harmony.ts)
+- [src/server.ts](file://src/server.ts)
+- [src/robot.ts](file://src/robot.ts)
 - [src/logger.ts](file://src/logger.ts)
-- [src/png.ts](file://src/png.ts)
+- [src/glm-ocr.ts](file://src/glm-ocr.ts)
 - [src/image-utils.ts](file://src/image-utils.ts)
 - [package.json](file://package.json)
 - [README.md](file://README.md)
-- [DEEPWIKI.md](file://DEEPWIKI.md)
+- [tsconfig.json](file://tsconfig.json)
 </cite>
 
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
-4. [架构总览](#架构总览)
+4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [依赖关系分析](#依赖关系分析)
 7. [性能考虑](#性能考虑)
 8. [故障排除指南](#故障排除指南)
 9. [结论](#结论)
-10. [附录](#附录)
 
 ## 简介
-本指南面向在 HarmonyOS 平台上集成自动化能力的开发者，详细说明如何安装和配置 HDC SDK 工具链，解释 HarmonyRobot 类的实现原理（设备连接、屏幕操作、应用管理、布局解析等），提供完整的开发环境搭建步骤（DevEco Studio 配置与设备调试设置），并涵盖 HarmonyOS 特有的 API 使用方法（如 hidumper、uitest、bm、aa 等）。同时包含故障排除指南与性能优化建议。
+
+Mobile MCP HarmonyOS 是一个基于 Model Context Protocol (MCP) 的跨平台移动设备自动化服务器，专门为 HarmonyOS (鸿蒙) 设备提供原生自动化支持。该项目基于 [@mobilenext/mobile-mcp](https://github.com/mobile-next/mobile-mcp) 二次开发，新增了 HarmonyOS 设备自动化能力，无需依赖 mobilecli，直接通过 HDC (HarmonyOS Device Connector) 驱动设备。
+
+该系统支持 iOS、Android 和 HarmonyOS 三大平台的统一 MCP 工具集，提供结构化的无障碍树数据交互，同时具备视觉识别兜底能力，为 LLM 和 Agent 提供强大的移动端自动化能力。
 
 ## 项目结构
-该项目采用模块化设计，核心围绕统一的 Robot 接口抽象，分别针对不同平台提供具体实现。HarmonyOS 的实现位于 HarmonyRobot 与 HarmonyDeviceManager，通过 HDC 工具链直接驱动设备，无需依赖 mobilecli。
+
+项目采用模块化设计，主要包含以下核心目录和文件：
 
 ```mermaid
 graph TB
-subgraph "传输层"
-IDX["src/index.ts<br/>启动 Stdio/SSE 服务器"]
+subgraph "核心模块"
+A[src/index.ts] --> B[src/server.ts]
+B --> C[src/harmony.ts]
+B --> D[src/robot.ts]
+B --> E[src/logger.ts]
+B --> F[src/glm-ocr.ts]
+B --> G[src/image-utils.ts]
 end
-subgraph "服务层"
-SRV["src/server.ts<br/>MCP 服务器与工具注册"]
+subgraph "配置文件"
+H[package.json] --> I[tsconfig.json]
 end
-subgraph "抽象层"
-ROBOT["src/robot.ts<br/>Robot 接口定义"]
+subgraph "测试文件"
+J[test/*.ts]
 end
-subgraph "实现层"
-HARMONY["src/harmony.ts<br/>HarmonyRobot/HarmonyDeviceManager"]
-end
-subgraph "工具层"
-LOGGER["src/logger.ts<br/>日志工具"]
-PNG["src/png.ts<br/>PNG 解析"]
-IMGUTIL["src/image-utils.ts<br/>图片处理"]
-MOBILECLI["src/mobilecli.ts<br/>mobilecli 封装"]
-end
-IDX --> SRV
-SRV --> ROBOT
-SRV --> HARMONY
-SRV --> MOBILECLI
-HARMONY --> LOGGER
-SRV --> PNG
-SRV --> IMGUTIL
+K[README.md] --> A
+L[DEEPWIKI.md] --> B
 ```
 
 **图表来源**
-- [src/index.ts:1-67](file://src/index.ts#L1-L67)
-- [src/server.ts:35-707](file://src/server.ts#L35-L707)
-- [src/robot.ts:48-147](file://src/robot.ts#L48-L147)
-- [src/harmony.ts:43-461](file://src/harmony.ts#L43-L461)
-- [src/mobilecli.ts:27-135](file://src/mobilecli.ts#L27-L135)
-- [src/logger.ts:1-22](file://src/logger.ts#L1-L22)
-- [src/png.ts:1-21](file://src/png.ts#L1-L21)
-- [src/image-utils.ts:1-165](file://src/image-utils.ts#L1-L165)
+- [src/index.ts:1-71](file://src/index.ts#L1-L71)
+- [src/server.ts:1-758](file://src/server.ts#L1-L758)
+- [src/harmony.ts:1-462](file://src/harmony.ts#L1-L462)
 
 **章节来源**
-- [README.md:175-190](file://README.md#L175-L190)
-- [DEEPWIKI.md:32-54](file://DEEPWIKI.md#L32-L54)
+- [package.json:1-74](file://package.json#L1-L74)
+- [tsconfig.json:1-14](file://tsconfig.json#L1-L14)
 
 ## 核心组件
-- **HarmonyRobot**：实现 Robot 接口，封装 HDC 工具链调用，提供屏幕尺寸获取、点击/双击/长按、滑动、截图、文本输入、按键、应用管理、URL 打开、UI 元素解析与方向获取等功能。
-- **HarmonyDeviceManager**：设备发现与详情获取，基于 hdc list targets 与设备参数查询。
-- **Robot 接口**：统一的跨平台抽象，定义设备信息、屏幕交互、截图、输入、应用管理、导航、UI 元素等能力。
-- **MCP 服务器**：在 server.ts 中注册工具，根据设备 ID 动态路由到对应平台的 Robot 实现。
-- **HDC 工具链**：hdc、uitest、hidumper、snapshot_display、bm、aa 等命令的集成。
 
-**章节来源**
-- [src/harmony.ts:43-416](file://src/harmony.ts#L43-L416)
-- [src/harmony.ts:418-461](file://src/harmony.ts#L418-L461)
-- [src/robot.ts:48-147](file://src/robot.ts#L48-L147)
-- [src/server.ts:149-197](file://src/server.ts#L149-L197)
+### HarmonyOS 自动化引擎
 
-## 架构总览
-HarmonyOS 自动化通过 HarmonyRobot 直连 HDC，无需 mobilecli 依赖。MCP 服务器在运行时根据设备 ID 选择合适的 Robot 实现，统一暴露工具接口给上层 Agent/LLM 使用。
+HarmonyOS 平台的核心是 `HarmonyRobot` 类，它实现了完整的设备控制功能：
 
-```mermaid
-sequenceDiagram
-participant Agent as "Agent/LLM"
-participant MCP as "MCP 服务器(server.ts)"
-participant Router as "设备路由(getRobotFromDevice)"
-participant HR as "HarmonyRobot"
-participant HDC as "HDC 工具链"
-Agent->>MCP : 调用工具(如 mobile_list_apps)
-MCP->>Router : 根据 device 参数选择实现
-Router->>HR : new HarmonyRobot(deviceId)
-HR->>HDC : 执行 hdc 命令(如 list/targets)
-HDC-->>HR : 返回设备/应用/布局等信息
-HR-->>MCP : 格式化结果
-MCP-->>Agent : 工具响应
-```
+- **设备发现**: 通过 `HarmonyDeviceManager` 自动检测连接的 HarmonyOS 设备
+- **屏幕控制**: 支持截图、屏幕尺寸获取、方向检测
+- **交互操作**: 点击、双击、长按、滑动等手势操作
+- **应用管理**: 应用列表、启动、终止、安装、卸载
+- **系统操作**: 键盘输入、物理按键模拟、URL 打开
 
-**图表来源**
-- [src/server.ts:149-197](file://src/server.ts#L149-L197)
-- [src/harmony.ts:418-461](file://src/harmony.ts#L418-L461)
+### 多平台设备抽象
 
-## 详细组件分析
-
-### HarmonyRobot 类实现原理
-HarmonyRobot 实现了 Robot 接口的所有方法，核心通过 execFileSync 调用 hdc 子命令完成设备控制与信息获取。
-
-- **设备连接与命令执行**
-  - 通过 getHdcPath() 解析 hdc 路径，支持环境变量 HDC_SDK_PATH 或默认 PATH 查找。
-  - 所有命令均以 "hdc -t 设备ID ..." 的形式执行，确保目标设备正确。
-
-- **屏幕尺寸与方向**
-  - 使用 hidumper 查询 DisplayManagerService 获取 VirtualWidth/VirtualHeight。
-  - 通过 ScreenRotation 判断横竖屏状态。
-
-- **屏幕交互**
-  - 点击/双击/长按：uitest uiInput 子命令。
-  - 滑动：uitest uiInput swipe，支持中心点滑动与坐标起点滑动。
-  - 文本输入：uitest uiInput inputText，优先聚焦元素坐标，否则使用屏幕中心。
-
-- **截图**
-  - 使用 snapshot_display 截图到设备临时路径，再通过 file recv 拉取到本地，最后清理临时文件。
-
-- **应用管理**
-  - 列表：bm dump -a。
-  - 启动：aa start -a/-b，需解析 mainAbility。
-  - 终止：aa force-stop。
-  - 安装/卸载：hdc install/uninstall，捕获 stdout/stderr 提供更友好的错误信息。
-
-- **布局解析**
-  - 使用 uitest dumpLayout 生成 JSON 布局树，解析 bounds、text/description/hint 等属性，过滤无效元素。
-
-- **按键**
-  - 通过 BUTTON_MAP 将 HOME/BACK/ENTER/VOLUME_* 映射到 uitest keyEvent。
+系统通过统一的 `Robot` 接口支持多平台设备：
 
 ```mermaid
 classDiagram
 class Robot {
+<<interface>>
 +getScreenSize() Promise~ScreenSize~
-+swipe(direction) Promise~void~
-+swipeFromCoordinate(x,y,direction,distance) Promise~void~
 +getScreenshot() Promise~Buffer~
 +listApps() Promise~InstalledApp[]~
 +launchApp(packageName) Promise~void~
@@ -160,241 +94,428 @@ class Robot {
 +openUrl(url) Promise~void~
 +sendKeys(text) Promise~void~
 +pressButton(button) Promise~void~
-+tap(x,y) Promise~void~
-+doubleTap(x,y) Promise~void~
-+longPress(x,y,duration) Promise~void~
++tap(x, y) Promise~void~
++doubleTap(x, y) Promise~void~
++longPress(x, y, duration) Promise~void~
 +getElementsOnScreen() Promise~ScreenElement[]~
++swipe(direction) Promise~void~
++swipeFromCoordinate(x, y, direction, distance) Promise~void~
 +setOrientation(orientation) Promise~void~
 +getOrientation() Promise~Orientation~
 }
 class HarmonyRobot {
--deviceId string
-+hdc(...args) Buffer
+-deviceId : string
++hdc(args) Buffer
 +getScreenSize() Promise~ScreenSize~
-+swipe(direction) Promise~void~
-+swipeFromCoordinate(x,y,direction,distance) Promise~void~
 +getScreenshot() Promise~Buffer~
++getElementsOnScreen() Promise~ScreenElement[]~
++swipe(direction) Promise~void~
++swipeFromCoordinate(x, y, direction, distance) Promise~void~
++sendKeys(text) Promise~void~
++pressButton(button) Promise~void~
++listApps() Promise~InstalledApp[]~
++launchApp(packageName) Promise~void~
++terminateApp(packageName) Promise~void~
++installApp(appPath) Promise~void~
++uninstallApp(bundleId) Promise~void~
++openUrl(url) Promise~void~
++getOrientation() Promise~Orientation~
+}
+class MobileDevice {
+-mobilecli : Mobilecli
++getScreenSize() Promise~ScreenSize~
++getScreenshot() Promise~Buffer~
++getElementsOnScreen() Promise~ScreenElement[]~
++swipe(direction) Promise~void~
++swipeFromCoordinate(x, y, direction, distance) Promise~void~
++sendKeys(text) Promise~void~
++pressButton(button) Promise~void~
 +listApps() Promise~InstalledApp[]~
 +launchApp(packageName) Promise~void~
 +terminateApp(packageName) Promise~void~
 +installApp(path) Promise~void~
 +uninstallApp(bundleId) Promise~void~
 +openUrl(url) Promise~void~
-+sendKeys(text) Promise~void~
-+pressButton(button) Promise~void~
-+tap(x,y) Promise~void~
-+doubleTap(x,y) Promise~void~
-+longPress(x,y,duration) Promise~void~
-+getElementsOnScreen() Promise~ScreenElement[]~
-+getOrientation() Promise~Orientation~
--collectElements(node) ScreenElement[]
--parseBounds(bounds) ScreenElementRect|null
 +setOrientation(orientation) Promise~void~
++getOrientation() Promise~Orientation~
 }
-class HarmonyDeviceManager {
-+getConnectedDevices() string[]
-+getConnectedDevicesWithDetails() DeviceInfo[]
-}
-Robot <|.. HarmonyRobot
-HarmonyRobot --> HarmonyDeviceManager : "设备发现"
+Robot <|-- HarmonyRobot
+Robot <|-- MobileDevice
 ```
 
 **图表来源**
 - [src/robot.ts:48-147](file://src/robot.ts#L48-L147)
 - [src/harmony.ts:43-416](file://src/harmony.ts#L43-L416)
-- [src/harmony.ts:418-461](file://src/harmony.ts#L418-L461)
+- [src/mobile-device.ts:62-216](file://src/mobile-device.ts#L62-L216)
 
 **章节来源**
-- [src/harmony.ts:12-18](file://src/harmony.ts#L12-L18)
-- [src/harmony.ts:20-26](file://src/harmony.ts#L20-L26)
-- [src/harmony.ts:55-69](file://src/harmony.ts#L55-L69)
-- [src/harmony.ts:401-411](file://src/harmony.ts#L401-L411)
-- [src/harmony.ts:71-81](file://src/harmony.ts#L71-L81)
-- [src/harmony.ts:83-117](file://src/harmony.ts#L83-L117)
-- [src/harmony.ts:119-157](file://src/harmony.ts#L119-L157)
-- [src/harmony.ts:159-182](file://src/harmony.ts#L159-L182)
-- [src/harmony.ts:212-219](file://src/harmony.ts#L212-L219)
-- [src/harmony.ts:221-232](file://src/harmony.ts#L221-L232)
-- [src/harmony.ts:234-262](file://src/harmony.ts#L234-L262)
-- [src/harmony.ts:264-288](file://src/harmony.ts#L264-L288)
-- [src/harmony.ts:289-292](file://src/harmony.ts#L289-L292)
-- [src/harmony.ts:294-332](file://src/harmony.ts#L294-L332)
-- [src/harmony.ts:334-376](file://src/harmony.ts#L334-L376)
-- [src/harmony.ts:378-399](file://src/harmony.ts#L378-L399)
-- [src/harmony.ts:413-415](file://src/harmony.ts#L413-L415)
+- [src/robot.ts:1-148](file://src/robot.ts#L1-L148)
+- [src/harmony.ts:1-462](file://src/harmony.ts#L1-L462)
 
-### 设备发现与路由
-- **设备发现**：HarmonyDeviceManager 通过 hdc list targets 获取设备 ID 列表，并通过 param get 查询产品名称与软件版本。
-- **设备路由**：MCP 服务器在 getRobotFromDevice 中优先判断 HarmonyOS 设备，若命中则返回 HarmonyRobot；否则回退到 mobilecli 体系。
+## 架构概览
 
-```mermaid
-flowchart TD
-Start(["开始"]) --> CheckHarmony["检查是否为 HarmonyOS 设备"]
-CheckHarmony --> |是| NewHarmony["new HarmonyRobot(deviceId)"]
-CheckHarmony --> |否| EnsureMobilecli["确保 mobilecli 可用"]
-EnsureMobilecli --> RouteIOS["iOS 设备判断"]
-EnsureMobilecli --> RouteAndroid["Android 设备判断"]
-EnsureMobilecli --> RouteSim["mobilecli 模拟器判断"]
-RouteIOS --> NotFound["抛出 ActionableError"]
-RouteAndroid --> NotFound
-RouteSim --> NotFound
-NewHarmony --> End(["结束"])
-NotFound --> End
-```
-
-**图表来源**
-- [src/server.ts:149-197](file://src/server.ts#L149-L197)
-- [src/harmony.ts:418-461](file://src/harmony.ts#L418-L461)
-
-**章节来源**
-- [src/server.ts:209-294](file://src/server.ts#L209-L294)
-- [src/server.ts:149-197](file://src/server.ts#L149-L197)
-
-### 截图与图片处理
-- 截图流程：snapshot_display -> file recv -> 本地缓存 -> 清理临时文件。
-- 图片验证：PNG 类验证 PNG 签名与尺寸；若为 JPEG 则进行缩放与压缩。
-- 缩放工具：优先使用 macOS 内置 sips，其次使用 ImageMagick。
-
-```mermaid
-flowchart TD
-Start(["开始"]) --> TakeShot["调用 getScreenshot()"]
-TakeShot --> Snapshot["hdc shell snapshot_display"]
-Snapshot --> Recv["hdc file recv 拉取到本地"]
-Recv --> Validate["PNG 验证或 JPEG 检测"]
-Validate --> Scale{"是否可缩放?"}
-Scale --> |是| Resize["Image.resize(width/scale)"]
-Resize --> Jpeg["Image.jpeg(quality=75)"]
-Jpeg --> Base64["转为 base64 返回"]
-Scale --> |否| ReturnRaw["直接返回原始 Buffer"]
-Base64 --> End(["结束"])
-ReturnRaw --> End
-```
-
-**图表来源**
-- [src/harmony.ts:159-182](file://src/harmony.ts#L159-L182)
-- [src/server.ts:585-672](file://src/server.ts#L585-L672)
-- [src/png.ts:10-19](file://src/png.ts#L10-L19)
-- [src/image-utils.ts:33-48](file://src/image-utils.ts#L33-L48)
-- [src/image-utils.ts:104-114](file://src/image-utils.ts#L104-L114)
-
-**章节来源**
-- [src/server.ts:585-672](file://src/server.ts#L585-L672)
-- [src/png.ts:1-21](file://src/png.ts#L1-L21)
-- [src/image-utils.ts:133-165](file://src/image-utils.ts#L133-L165)
-
-## 依赖关系分析
-- 运行时依赖：Node.js >= 18，MCP SDK，可选 Express（SSE 模式）。
-- HarmonyOS 依赖：HDC SDK（hdc、uitest、hidumper、snapshot_display、bm、aa）。
-- 工具链集成：通过 execFileSync 调用，严格限制超时与缓冲区大小，避免阻塞。
-- 错误处理：统一抛出 ActionableError，便于 MCP 客户端提示修复。
+系统采用分层架构设计，通过统一的 MCP 服务器提供服务：
 
 ```mermaid
 graph TB
-PKG["package.json<br/>依赖声明"] --> NODE["Node.js >= 18"]
-PKG --> MCP["@modelcontextprotocol/sdk"]
-PKG --> EXP["express (可选)"]
-PKG --> TS["typescript"]
-SRV["src/server.ts"] --> HARMONY["src/harmony.ts"]
-SRV --> MOBILECLI["src/mobilecli.ts"]
-HARMONY --> HDC["HDC 工具链(hdc/uitest/hidumper/snapshot_display/bm/aa)"]
-SRV --> LOGGER["src/logger.ts"]
-SRV --> PNG["src/png.ts"]
-SRV --> IMGUTIL["src/image-utils.ts"]
+subgraph "客户端层"
+A[MCP 客户端]
+B[LLM/Agent]
+end
+subgraph "MCP 服务器层"
+C[McpServer]
+D[工具注册器]
+E[设备路由器]
+end
+subgraph "设备抽象层"
+F[Robot 接口]
+G[HarmonyRobot]
+H[iOS Robot]
+I[Android Robot]
+J[MobileDevice]
+end
+subgraph "HarmonyOS 设备层"
+K[HDC SDK]
+L[uitest]
+M[hidumper]
+N[snapshot_display]
+O[bm/aa]
+end
+A --> C
+B --> C
+C --> D
+C --> E
+E --> F
+F --> G
+F --> H
+F --> I
+F --> J
+G --> K
+K --> L
+K --> M
+K --> N
+K --> O
 ```
 
 **图表来源**
-- [package.json:13-15](file://package.json#L13-L15)
-- [package.json:29-39](file://package.json#L29-L39)
-- [src/server.ts:1-16](file://src/server.ts#L1-L16)
-- [src/harmony.ts:1-10](file://src/harmony.ts#L1-L10)
+- [src/server.ts:40-202](file://src/server.ts#L40-L202)
+- [src/harmony.ts:43-461](file://src/harmony.ts#L43-L461)
+
+系统的核心流程包括：
+
+1. **设备发现**: 通过 `HarmonyDeviceManager` 和 `MobileDeviceManager` 发现可用设备
+2. **设备路由**: 根据设备类型选择相应的 `Robot` 实现
+3. **命令执行**: 将 MCP 工具调用转换为具体的设备操作
+4. **结果返回**: 将操作结果格式化为 MCP 响应
 
 **章节来源**
-- [package.json:1-74](file://package.json#L1-L74)
+- [src/server.ts:154-202](file://src/server.ts#L154-L202)
+- [src/index.ts:9-48](file://src/index.ts#L9-L48)
+
+## 详细组件分析
+
+### HarmonyRobot 实现
+
+`HarmonyRobot` 类是 HarmonyOS 平台的核心实现，提供了完整的设备控制功能：
+
+#### 设备连接管理
+
+```mermaid
+sequenceDiagram
+participant Client as "客户端"
+participant Server as "MCP 服务器"
+participant Manager as "HarmonyDeviceManager"
+participant Robot as "HarmonyRobot"
+participant HDC as "HDC SDK"
+Client->>Server : 请求设备列表
+Server->>Manager : getConnectedDevices()
+Manager->>HDC : hdc list targets
+HDC-->>Manager : 设备列表
+Manager-->>Server : 设备详情
+Server-->>Client : 设备列表响应
+Client->>Server : 选择设备并执行操作
+Server->>Robot : 创建 HarmonyRobot
+Robot->>HDC : 执行具体命令
+HDC-->>Robot : 命令结果
+Robot-->>Server : 操作结果
+Server-->>Client : 响应结果
+```
+
+**图表来源**
+- [src/harmony.ts:418-461](file://src/harmony.ts#L418-L461)
+- [src/server.ts:154-202](file://src/server.ts#L154-L202)
+
+#### 屏幕交互功能
+
+HarmonyOS 的屏幕交互通过 `uitest` 工具实现，支持多种手势操作：
+
+| 功能 | 命令 | 参数 | 描述 |
+|------|------|------|------|
+| 点击 | `uitest uiInput click` | x, y | 单击指定坐标 |
+| 双击 | `uitest uiInput doubleClick` | x, y | 双击指定坐标 |
+| 长按 | `uitest uiInput longClick` | x, y | 长按指定坐标 |
+| 滑动 | `uitest uiInput swipe` | x1, y1, x2, y2, duration | 从起点滑动到终点 |
+
+#### 应用管理功能
+
+应用管理通过 `bm` 和 `aa` 工具实现：
+
+```mermaid
+flowchart TD
+A[应用操作请求] --> B{操作类型}
+B --> |启动| C[查找主 Ability]
+B --> |终止| D[强制停止应用]
+B --> |安装| E[安装 APK/HAP]
+B --> |卸载| F[卸载应用]
+C --> G[aa start -a ability -b bundle]
+D --> H[aa force-stop bundle]
+E --> I[install -r appPath]
+F --> J[uninstall bundleId]
+G --> K[操作完成]
+H --> K
+I --> K
+J --> K
+```
+
+**图表来源**
+- [src/harmony.ts:234-288](file://src/harmony.ts#L234-L288)
+
+**章节来源**
+- [src/harmony.ts:43-416](file://src/harmony.ts#L43-L416)
+
+### MCP 服务器集成
+
+MCP 服务器通过统一的工具注册机制支持所有平台：
+
+#### 工具注册流程
+
+```mermaid
+sequenceDiagram
+participant Server as "MCP 服务器"
+participant Tool as "工具注册器"
+participant Device as "设备路由器"
+participant Robot as "Robot 实现"
+Server->>Tool : 注册工具
+Tool->>Device : getRobotFromDevice()
+Device->>Device : 检测设备类型
+Device->>Robot : 返回对应实现
+Tool->>Tool : 创建工具回调
+Tool-->>Server : 工具注册完成
+Server->>Tool : 工具调用
+Tool->>Robot : 执行具体操作
+Robot-->>Tool : 返回结果
+Tool-->>Server : 格式化响应
+Server-->>Client : MCP 响应
+```
+
+**图表来源**
+- [src/server.ts:67-100](file://src/server.ts#L67-L100)
+- [src/server.ts:154-202](file://src/server.ts#L154-L202)
+
+#### 错误处理机制
+
+系统实现了完善的错误处理机制：
+
+```mermaid
+flowchart TD
+A[工具调用] --> B[执行操作]
+B --> C{操作成功?}
+C --> |是| D[返回成功响应]
+C --> |否| E{ActionableError?}
+E --> |是| F[返回可修复错误]
+E --> |否| G[记录详细错误]
+F --> H[客户端处理]
+G --> I[返回技术错误]
+H --> J[结束]
+I --> J
+```
+
+**图表来源**
+- [src/server.ts:84-99](file://src/server.ts#L84-L99)
+
+**章节来源**
+- [src/server.ts:40-758](file://src/server.ts#L40-L758)
+
+### OCR 识别功能
+
+系统集成了 GLM-OCR 能力，用于处理无障碍数据不可用的情况：
+
+#### OCR 流程
+
+```mermaid
+sequenceDiagram
+participant Client as "客户端"
+participant Server as "MCP 服务器"
+participant Robot as "Robot"
+participant OCR as "GLM-OCR"
+Client->>Server : mobile_ocr_elements_on_screen
+Server->>Robot : 获取截图和屏幕尺寸
+Robot-->>Server : 返回截图和尺寸
+Server->>OCR : 解析布局
+OCR->>OCR : 发送 API 请求
+OCR-->>Server : 返回识别结果
+Server->>Server : 格式化输出
+Server-->>Client : OCR 元素列表
+```
+
+**图表来源**
+- [src/server.ts:711-754](file://src/server.ts#L711-L754)
+- [src/glm-ocr.ts:41-101](file://src/glm-ocr.ts#L41-L101)
+
+**章节来源**
+- [src/glm-ocr.ts:1-103](file://src/glm-ocr.ts#L1-L103)
+
+## 依赖关系分析
+
+### 外部依赖
+
+项目的主要外部依赖包括：
+
+| 依赖项 | 版本 | 用途 |
+|--------|------|------|
+| @modelcontextprotocol/sdk | 1.25.2 | MCP 协议实现 |
+| commander | 14.0.0 | 命令行参数解析 |
+| express | 5.1.0 | HTTP 服务器 |
+| fast-xml-parser | 5.3.4 | XML 解析 |
+| zod | ^4.1.13 | 数据验证 |
+| zod-to-json-schema | 3.25.0 | Schema 转换 |
+
+### 内部模块依赖
+
+```mermaid
+graph TB
+A[src/index.ts] --> B[src/server.ts]
+B --> C[src/harmony.ts]
+B --> D[src/robot.ts]
+B --> E[src/logger.ts]
+B --> F[src/glm-ocr.ts]
+B --> G[src/image-utils.ts]
+C --> H[src/robot.ts]
+I[src/mobile-device.ts] --> D
+J[src/android.ts] --> D
+K[src/ios.ts] --> D
+```
+
+**图表来源**
+- [src/index.ts:1-71](file://src/index.ts#L1-L71)
 - [src/server.ts:1-16](file://src/server.ts#L1-L16)
 
-## 性能考虑
-- 截图优化：优先使用 JPEG 压缩与按比例缩放，降低传输体积与内存占用。
-- 命令超时与缓冲区：统一设置超时与最大缓冲区，避免长时间阻塞。
-- 临时文件清理：确保设备与本地临时文件及时清理，防止磁盘占用。
-- 设备路由：优先 HarmonyOS 设备，减少不必要的 mobilecli 调用。
+**章节来源**
+- [package.json:29-39](file://package.json#L29-L39)
 
-[本节为通用指导，无需特定文件引用]
+## 性能考虑
+
+### 图像处理优化
+
+系统实现了智能的图像缩放机制：
+
+1. **平台检测**: 自动检测 macOS (Sips) 或 Linux (ImageMagick) 环境
+2. **质量控制**: 默认 JPEG 质量 75%，平衡文件大小和质量
+3. **尺寸适配**: 根据设备屏幕比例调整图像尺寸
+4. **内存管理**: 使用临时文件系统避免内存溢出
+
+### 命令执行优化
+
+- **超时控制**: 所有 HDC 命令设置 30 秒超时
+- **缓冲区限制**: 最大缓冲区 4MB，防止内存泄漏
+- **并发控制**: 合理的命令执行顺序，避免设备过载
+
+### 网络通信优化
+
+- **API 缓存**: 本地缓存设备信息减少重复查询
+- **批量操作**: 支持多个工具调用的批处理
+- **连接复用**: 复用 HDC 连接减少握手开销
 
 ## 故障排除指南
-- **HDC 未找到或不在 PATH**
-  - 确认 HDC_SDK_PATH 环境变量指向包含 hdc 的目录，或确保 hdc 在系统 PATH 中。
-  - 参考路径解析逻辑与环境变量设置。
 
-- **设备未被识别**
-  - 使用 hdc list targets 检查设备是否在线。
-  - 若无设备，检查 USB 调试、驱动安装与设备授权。
+### 常见问题及解决方案
 
-- **截图失败或为空**
-  - 确认 snapshot_display 输出格式与 PNG 验证逻辑。
-  - 检查设备权限与存储空间。
+#### HDC 连接问题
 
-- **应用启动失败**
-  - 确认包名与 mainAbility 正确，必要时手动解析 bm dump 输出。
-  - 检查 aa 命令参数与设备兼容性。
+**症状**: 设备无法被发现或命令执行失败
 
-- **按键映射错误**
-  - HarmonyOS 按键与 Android 不同，需使用 BUTTON_MAP 映射。
-  - 如遇未支持按键，抛出 ActionableError 并提示修复。
+**诊断步骤**:
+1. 检查 HDC 是否在 PATH 中
+2. 验证设备是否正确连接
+3. 确认设备开发者选项已启用
 
-- **日志与诊断**
-  - 设置 LOG_FILE 环境变量记录详细日志。
-  - 使用 trace/error 输出关键信息，便于定位问题。
+**解决方案**:
+```bash
+# 检查 HDC 版本
+hdc --version
+
+# 列出连接的设备
+hdc list targets
+
+# 查看设备详细信息
+hdc -t DEVICE_ID shell param get const.product.name
+```
+
+#### 权限问题
+
+**症状**: 应用安装或启动失败
+
+**解决方案**:
+1. 确保设备允许未知来源应用
+2. 检查应用签名和权限配置
+3. 重新授权设备调试权限
+
+#### OCR 功能问题
+
+**症状**: GLM-OCR 识别失败或返回空结果
+
+**诊断方法**:
+1. 验证 API 密钥有效性
+2. 检查网络连接状态
+3. 确认图片格式支持
 
 **章节来源**
 - [src/harmony.ts:12-18](file://src/harmony.ts#L12-L18)
-- [src/harmony.ts:420-433](file://src/harmony.ts#L420-L433)
-- [src/harmony.ts:159-182](file://src/harmony.ts#L159-L182)
-- [src/harmony.ts:234-262](file://src/harmony.ts#L234-L262)
-- [src/harmony.ts:212-219](file://src/harmony.ts#L212-L219)
+- [src/glm-ocr.ts:70-81](file://src/glm-ocr.ts#L70-L81)
+
+### 日志分析
+
+系统支持详细的日志记录：
+
+```mermaid
+flowchart TD
+A[日志配置] --> B{LOG_FILE 环境变量}
+B --> |设置| C[写入文件]
+B --> |未设置| D[标准错误输出]
+C --> E[时间戳记录]
+D --> E
+E --> F[INFO 级别]
+F --> G[错误追踪]
+```
+
+**图表来源**
+- [src/logger.ts:3-21](file://src/logger.ts#L3-L21)
+
+**章节来源**
 - [src/logger.ts:1-22](file://src/logger.ts#L1-L22)
 
 ## 结论
-通过 HarmonyRobot 与 HarmonyDeviceManager，项目实现了对 HarmonyOS 设备的完整自动化支持，无需 mobilecli 依赖，直接利用 HDC 工具链完成设备连接、屏幕交互、应用管理与布局解析。配合 MCP 服务器的统一工具注册与设备路由机制，可无缝集成到各类 Agent/LLM 工作流中。建议在生产环境中关注 HDC 工具链稳定性、截图优化与错误处理策略，以获得更好的可靠性与性能表现。
 
-[本节为总结性内容，无需特定文件引用]
+Mobile MCP HarmonyOS 项目成功实现了 HarmonyOS 平台的原生自动化支持，具有以下特点：
 
-## 附录
+### 技术优势
 
-### 开发环境搭建步骤
-- 安装 Node.js（版本要求见 package.json）。
-- 安装 HDC SDK（包含 hdc、uitest、hidumper、snapshot_display、bm、aa）。
-- 配置环境变量：
-  - HDC_SDK_PATH：指向包含 hdc 的目录。
-  - LOG_FILE（可选）：日志输出文件路径。
-- 安装项目依赖并构建：
-  - npm install
-  - npm run build
-- 启动 MCP 服务器：
-  - 默认 Stdio 模式：node lib/index.js
-  - SSE 模式：node lib/index.js --port 3000
+1. **统一抽象**: 通过 Robot 接口实现多平台一致性
+2. **原生集成**: 直接使用 HDC SDK，无需额外依赖
+3. **智能降级**: 结合无障碍树和 OCR 识别提供可靠体验
+4. **性能优化**: 智能图像处理和命令执行优化
 
-**章节来源**
-- [package.json:13-15](file://package.json#L13-L15)
-- [README.md:90-171](file://README.md#L90-L171)
+### 应用价值
 
-### DevEco Studio 配置与设备调试
-- 在 DevEco Studio 中启用“允许USB调试”和“允许安装测试应用”。
-- 通过 USB 连接真机，确保 hdc 能识别设备。
-- 在设备上安装待测应用，确认包名与 mainAbility 可用。
-- 使用 MCP 工具进行自动化操作与验证。
+- **开发效率**: 为 LLM 和 Agent 提供强大的移动端自动化能力
+- **成本效益**: 减少对第三方工具的依赖，降低维护成本
+- **扩展性**: 易于添加新的平台支持和功能特性
 
-**章节来源**
-- [README.md:25-34](file://README.md#L25-L34)
-- [README.md:90-99](file://README.md#L90-L99)
+### 未来发展方向
 
-### HarmonyOS 特有 API 使用方法
-- **hdc**：设备连接、文件传输、Shell 命令执行。
-- **uitest**：UI 输入（click/doubleClick/longClick/swipe/inputText/keyEvent）、布局 dump。
-- **hidumper**：显示信息查询（屏幕尺寸、旋转方向）。
-- **snapshot_display**：截取屏幕图片。
-- **bm**：应用包管理（列出、查询）。
-- **aa**：Ability 启动与终止。
+1. **功能增强**: 支持更多 HarmonyOS 特有功能
+2. **性能优化**: 进一步提升图像处理和命令执行效率
+3. **稳定性改进**: 增强错误处理和异常恢复机制
+4. **生态集成**: 与更多 MCP 客户端和工具链集成
 
-**章节来源**
-- [README.md:175-188](file://README.md#L175-L188)
-- [DEEPWIKI.md:615-629](file://DEEPWIKI.md#L615-L629)
+该项目为 HarmonyOS 平台的自动化测试、应用开发和 AI 集成提供了坚实的技术基础，是移动设备自动化领域的重要创新。
