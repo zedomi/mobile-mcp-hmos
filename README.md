@@ -105,9 +105,7 @@ HarmonyOS 自动化通过 **HDC (HarmonyOS Device Connector)** 直接驱动设�
 {
   "mcpServers": {
     "mobile-mcp": {
-      "command": "npx",
-      "args": ["-y", "@ali/mobile-mcp-harmony@latest"]
-    }
+      mobile-mcp-next    }
   }
 }
 ```
@@ -116,7 +114,7 @@ HarmonyOS 自动化通过 **HDC (HarmonyOS Device Connector)** 直接驱动设�
 <summary>Claude Code</summary>
 
 ```bash
-claude mcp add mobile-mcp -- npx -y @ali/mobile-mcp-harmony@latest
+claude mcp add mobile-mcp -- npx -y @ali/mobile-mcp-next@latest
 ```
 
 </details>
@@ -140,7 +138,7 @@ claude mcp add mobile-mcp -- npx -y @ali/mobile-mcp-harmony@latest
       "type": "local",
       "command": "npx",
       "tools": ["*"],
-      "args": ["@ali/mobile-mcp-harmony@latest"]
+      "args": ["@ali/mobile-mcp-next@latest"]
     }
   }
 }

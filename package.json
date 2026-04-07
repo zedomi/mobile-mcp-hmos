@@ -1,6 +1,6 @@
 {
-  "name": "@ali/mobile-mcp-harmony",
-  "mcpName": "io.github.zedomi/mobile-mcp-harmony",
+  "name": "@ali/mobile-mcp-next",
+  "mcpName": "io.github.zedomi/mobile-mcp-next",
   "version": "0.3.2",
   "description": "Mobile MCP with Android、iOS、HarmonyOS support",
   "publishConfig": {
